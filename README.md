@@ -13,7 +13,7 @@ Snapshot Financial is a Blazor Server-Side Rendering (SSR) web application for t
 ## Setup & Installation
 
 ### Prerequisites
-- [.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
+- [.NET 9 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
 - [SQLite](https://www.sqlite.org/download.html) (Optional)
 - [Visual Studio 2022](https://visualstudio.microsoft.com/) or VS Code
 
