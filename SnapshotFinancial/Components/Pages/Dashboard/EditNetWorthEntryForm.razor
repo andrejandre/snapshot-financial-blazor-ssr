@@ -1,0 +1,58 @@
+﻿@using SnapshotFinancial.Data
+@inject NotificationService NotificationService
+
+@code {
+    [Parameter] public EventCallback OnRecordUpdated { get; set; }
+    [Parameter] public NetworthRecord Record { get; set; } = new();
+
+    private bool isSubmitting = false;
+}
+
+<RadzenTemplateForm TItem="NetworthRecord" Data="@Record" Submit="@OnSubmit">
+    <RadzenStack Gap="1rem">
+        <RadzenFormField Text="Name">
+            <RadzenTextBox @bind-Value=@Record.Name />
+        </RadzenFormField>
+
+        <RadzenFormField Text="Type">
+            <RadzenDropDown Data="@Enum.GetValues(typeof(RecordType))"
+                            @bind-Value=@Record.Type />
+        </RadzenFormField>
+
+        <RadzenFormField Text="Status">
+            <RadzenTextBox @bind-Value=@Record.Status />
+        </RadzenFormField>
+
+        <RadzenFormField Text="Amount">
+            <RadzenNumeric @bind-Value=@Record.Amount />
+        </RadzenFormField>
+
+        <RadzenFormField Text="Notes">
+            <RadzenTextArea @bind-Value=@Record.Notes Rows="4" />
+        </RadzenFormField>
+
+        <RadzenButton ButtonType="ButtonType.Submit" Text="Save Changes"
+                      IsBusy="@isSubmitting" BusyText="Saving..." />
+    </RadzenStack>
+</RadzenTemplateForm>
+
+@code {
+    private async Task OnSubmit()
+    {
+        isSubmitting = true;
+
+        // Simulate async operation
+        await Task.Delay(2000);
+
+        await OnRecordUpdated.InvokeAsync();
+
+        NotificationService.Notify(new NotificationMessage
+        {
+            Severity = NotificationSeverity.Success,
+            Summary = "Success",
+            Detail = "Net worth entry updated successfully."
+        });
+
+        isSubmitting = false;
+    }
+}

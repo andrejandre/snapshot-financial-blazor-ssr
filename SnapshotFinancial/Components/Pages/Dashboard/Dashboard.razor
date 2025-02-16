@@ -1,0 +1,249 @@
+﻿@page "/"
+@using SnapshotFinancial.Data
+@inject NetworthService NetworthService
+@inject NotificationService NotificationService
+@inject DialogService DialogService
+
+<RadzenText TextStyle="TextStyle.DisplayH1">My Net Worth</RadzenText>
+
+<RadzenButton Text="Add New Record" Click="@OpenAddRecordDialog" Icon="add" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" />
+
+<RadzenDataGrid @ref="@dataGrid" TItem="NetworthRecord"
+                Data="@Records" Count="@TotalRecords"
+                AllowPaging="true" PageSize="10"
+                AllowSorting="true" AllowFiltering="false"
+                PageSizeOptions="@pageSizeOptions"
+                ShowPagingSummary="true"
+                PagingSummaryFormat="Displaying page {0} of {1} <b>(total {2} records)</b>"
+                LoadData="@LoadData"
+                class="rz-shadow-4 rz-mt-4">
+    <Columns>
+        <RadzenDataGridColumn Property="Id" Title="ID" Width="80px" />
+        <RadzenDataGridColumn Property="Name" Title="Name" />
+        <RadzenDataGridColumn Property="Type" Title="Type" />
+        <RadzenDataGridColumn Property="Status" Title="Status" />
+        <RadzenDataGridColumn Property="Amount" Title="Amount" FormatString="{0:C}" />
+        <RadzenDataGridColumn Property="Notes" Title="Notes" />
+
+        <!-- Actions -->
+        <RadzenDataGridColumn Title="Actions" Width="150px">
+            <Template Context="record">
+                <RadzenButton Icon="edit" ButtonStyle="ButtonStyle.Info" Size="ButtonSize.Small" Click="@(() => OpenEditDialog(record))" />
+                <RadzenButton Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" Style="margin-left: 10px" Click="@(() => ConfirmDeleteRecord(record))" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+
+@code {
+    private List<NetworthRecord> Records { get; set; } = new();
+    private NetworthRecord NewRecord { get; set; } = new();
+    private NetworthRecord? SelectedRecord { get; set; }
+    private int TotalRecords { get; set; } = 0;
+    RadzenDataGrid<NetworthRecord> dataGrid;
+    IEnumerable<int> pageSizeOptions = new int[] { 5, 10, 20, 50 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData(new LoadDataArgs()); 
+    }
+
+    private async Task OnPage(PagerEventArgs args)
+    {
+        // If args.Top is 0 or negative, default to 10
+        int pageSize = args.Top <= 0 ? 10 : args.Top;
+
+        // If args.Skip is negative, clamp to 0
+        int skip = args.Skip < 0 ? 0 : args.Skip;
+
+        int page = skip / pageSize + 1;
+
+        // Call your LoadData or other method, passing in the correct parameters
+        await LoadData(new LoadDataArgs
+        {
+            Top = pageSize,
+            Skip = skip
+        });
+    }
+
+
+    private async Task LoadData(LoadDataArgs args)
+    {
+        int pageSize = args.Top ?? 10;  // ✅ Fix nullable handling
+        int page = ((args.Skip ?? 0) / pageSize) + 1;  // ✅ Fix page calculation
+        var sortColumn = args.OrderBy ?? "Id";  // Default sorting column
+        var isAscending = args.Sorts?.Any() == true ? args.Sorts.First().SortOrder == SortOrder.Ascending : true;
+
+        try
+        {
+            var result = await NetworthService.GetPaginatedRecordsAsync(page, pageSize, sortColumn, isAscending);
+
+            if (result.Item1 != null && result.Item1.Any())
+            {
+                Records = result.Item1;
+                TotalRecords = result.Item2;
+            }
+            else
+            {
+                Records = new List<NetworthRecord>(); // Fallback
+                TotalRecords = 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading records: {ex.Message}");
+            Records = new List<NetworthRecord>(); // Ensure it's never null
+        }
+    }
+
+    private async Task OpenAddRecordDialog()
+    {
+        await DialogService.OpenAsync<AddNetWorthEntryForm>(
+            "Add Net Worth Entry",
+            new Dictionary<string, object>()
+            {
+                { "NewRecord", NewRecord },
+                { "OnRecordAdded", EventCallback.Factory.Create(this, OnRecordAdded) }
+            },
+            new DialogOptions()
+            {
+                Draggable = true
+            }
+        );
+    }
+
+    private async Task OnRecordAdded()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(NewRecord.Name) || NewRecord.Amount <= 0)
+            {
+                throw new ArgumentException("Invalid net worth record. Please ensure all required fields are filled correctly.");
+            }
+
+            await NetworthService.AddRecordAsync(NewRecord);
+
+            // Instead of calling LoadData, just reload the grid:
+            await dataGrid.Reload();
+
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "Success",
+                Detail = "Net worth entry added successfully."
+            });
+
+            NewRecord = new(); // Reset form for next entry
+            DialogService.Close();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"Failed to add net worth entry: {ex.Message}"
+            });
+        }
+    }
+
+
+    private async Task OpenEditDialog(NetworthRecord record)
+    {
+        SelectedRecord = Records.FirstOrDefault(r => r.Id == record.Id);
+
+        if (SelectedRecord is null)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = "Record not found.",
+                Duration = -1,
+                CloseOnClick = true
+            });
+        }
+
+        await DialogService.OpenAsync<EditNetWorthEntryForm>(
+            "Edit Net Worth Entry",
+            new Dictionary<string, object>()
+            {
+                { "Record", SelectedRecord! },
+                { "OnRecordUpdated", EventCallback.Factory.Create(this, OnRecordUpdated) }
+            },
+            new DialogOptions()
+            {
+                Draggable = true
+            }
+        );
+    }
+
+    private async Task OnRecordUpdated()
+    {
+        if (SelectedRecord is null) return;
+
+        try
+        {
+            await NetworthService.UpdateRecordAsync(SelectedRecord);
+            // Instead of calling LoadData, just reload the grid:
+            await dataGrid.Reload();
+            StateHasChanged();
+
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Success,
+                Summary = "Success",
+                Detail = "Net worth entry updated successfully."
+            });
+
+            DialogService.Close();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"Failed to update net worth entry: {ex.Message}"
+            });
+        }
+    }
+
+    private async Task ConfirmDeleteRecord(NetworthRecord record)
+    {
+        bool? result = await DialogService.Confirm($"Are you sure you want to delete {record.Name}?", "Confirm Delete");
+
+        if (result == true)
+        {
+            await DeleteRecord(record);
+        }
+    }
+
+    private async Task DeleteRecord(NetworthRecord record)
+    {
+        try
+        {
+            await NetworthService.DeleteRecordAsync(record.Id);
+
+            // Instead of calling LoadData, just reload the grid:
+            await dataGrid.Reload();
+
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Warning,
+                Summary = "Deleted",
+                Detail = $"Net worth entry '{record.Name}' was deleted."
+            });
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(new NotificationMessage
+            {
+                Severity = NotificationSeverity.Error,
+                Summary = "Error",
+                Detail = $"Failed to delete net worth entry: {ex.Message}"
+            });
+        }
+    }
+}

@@ -1,0 +1,64 @@
+﻿@inherits LayoutComponentBase
+
+<RadzenComponents @rendermode="InteractiveAuto" />
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+            <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
+            <RadzenLabel Text="Snapshot Financial" />
+            <RadzenAppearanceToggle />
+        </RadzenStack>
+    </RadzenHeader>
+    <RadzenSidebar @bind-Expanded="@sidebarExpanded">
+        <RadzenPanelMenu>
+            <RadzenPanelMenuItem Text="My Net Worth" Icon="home" Path="/" />
+        </RadzenPanelMenu>
+    </RadzenSidebar>
+    <RadzenBody>
+        <div class="rz-p-4">
+            @Body
+        </div>
+    </RadzenBody>
+    <RadzenFooter class="rz-shadow-8">
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.SpaceBetween"
+                     Gap="0"
+                     Style="width: 100%;">
+
+            <!-- Left side: Branding / tagline -->
+            <div>
+                <RadzenHeading Size="H4" Text="Snapshot Financial" Style="margin: 0;" />
+                <p style="margin: 0; font-size: 0.9rem;">
+                    Empowering your finances, one snapshot at a time.
+                </p>
+            </div>
+        </RadzenStack>
+
+        <!-- Divider or subtle line -->
+        <hr style="border: 0; border-top: 1px solid #607D8B; margin: 15px 0;" />
+
+        <!-- Centered copyright -->
+        <RadzenStack Orientation="Orientation.Horizontal"
+                     AlignItems="AlignItems.Center"
+                     JustifyContent="JustifyContent.Center"
+                     Gap="5">
+            <RadzenIcon Icon="copyright" />
+            <span style="font-size: 0.85rem;">
+                @DateTime.Now.Year Snapshot Financial. All rights reserved.
+            </span>
+        </RadzenStack>
+    </RadzenFooter>
+</RadzenLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+
+@code {
+    bool sidebarExpanded = true;
+}
